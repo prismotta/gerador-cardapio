@@ -1,3 +1,24 @@
+"""
+core/gerador.py
+-------------------------------------------------------
+Responsável por toda lógica de geração do cardápio semanal.
+
+Camadas:
+UI → gerar_cardapio() → gerar_refeicao_fixa() → aplicar_preparo()
+
+Responsabilidades:
+- Seleção inteligente de proteínas
+- Controle de frequência de carboidratos
+- Evitar repetição consecutiva
+- Respeitar modo econômico
+- Respeitar limite de Rap10
+- Suporte multi-usuário via dicionário de alimentos
+
+Este módulo NÃO acessa banco diretamente.
+Recebe os alimentos já carregados.
+-------------------------------------------------------
+"""
+
 import random
 from config import LIMITES_CARBO, LEGUMES
 from core.regras import aplicar_regras_inteligentes
@@ -5,14 +26,18 @@ from core.preparos import aplicar_preparo
 
 
 # =========================================================
-# FUNÇÃO AUXILIAR
+# AUXILIAR
 # =========================================================
 
 def extrair_id_refeicao(ref):
-    return (
-        ref["proteina"]["nome"] if "nome" in ref["proteina"] else "Ovos",
-        ref["carbo"]["nome"]
-    )
+    """
+    Extrai identificador estrutural da refeição.
+    Usado para evitar repetição consecutiva.
+    """
+    proteina_nome = ref["proteina"].get("nome", "Ovos")
+    carbo_nome = ref["carbo"].get("nome", "")
+
+    return (proteina_nome, carbo_nome)
 
 
 # =========================================================
@@ -20,6 +45,12 @@ def extrair_id_refeicao(ref):
 # =========================================================
 
 def gerar_proteina(morador_atual, config_local, alimentos):
+    """
+    Gera proteína considerando:
+    - Morador
+    - Modo econômico
+    - Quantidade de ovos
+    """
 
     if morador_atual == "Morador 1 (Massa)":
         frango = "Frango_M1"
@@ -28,20 +59,23 @@ def gerar_proteina(morador_atual, config_local, alimentos):
         frango = "Frango_M2"
         hamburguer = "Hamburguer_M2"
 
-    if config_local["modo_economico"]:
-        opcoes = ["OVOS", frango, hamburguer]
-        pesos = [0.4, 0.3, 0.3]
-        escolha = random.choices(opcoes, weights=pesos, k=1)[0]
+    opcoes = ["OVOS", frango, hamburguer]
 
-        if escolha == "OVOS":
-            quantidade = max(1, config_local["ovos_refeicao"] - 1)
-            return {"tipo": "ovos", "quantidade": quantidade}
+    # Modo econômico altera pesos
+    if config_local["modo_economico"]:
+        escolha = random.choices(opcoes, weights=[0.4, 0.3, 0.3], k=1)[0]
     else:
-        opcoes = ["OVOS", frango, hamburguer]
         escolha = random.choice(opcoes)
 
-        if escolha == "OVOS":
-            return {"tipo": "ovos", "quantidade": config_local["ovos_refeicao"]}
+    if escolha == "OVOS":
+        return {
+            "tipo": "ovos",
+            "quantidade": config_local["ovos_refeicao"]
+        }
+
+    # Segurança contra chave inexistente
+    if escolha not in alimentos:
+        raise KeyError(f"Alimento '{escolha}' não encontrado no banco.")
 
     return alimentos[escolha]
 
@@ -58,6 +92,9 @@ def gerar_refeicao_fixa(
     contador_carbo,
     alimentos
 ):
+    """
+    Gera refeição completa (proteína + carbo + opcional legume).
+    """
 
     # ---------------- PROTEÍNA ----------------
 
@@ -69,13 +106,16 @@ def gerar_refeicao_fixa(
 
     elif tipo_proteina == "Frango":
         chave = "Frango_M1" if morador_atual == "Morador 1 (Massa)" else "Frango_M2"
-        proteina = alimentos[chave]
+        proteina = alimentos.get(chave)
 
     else:
         chave = "Hamburguer_M1" if morador_atual == "Morador 1 (Massa)" else "Hamburguer_M2"
-        proteina = alimentos[chave]
+        proteina = alimentos.get(chave)
 
-    # ---------------- CARBO BASE ----------------
+    if not proteina:
+        raise KeyError(f"Proteína '{tipo_proteina}' não encontrada.")
+
+    # ---------------- CARBO ----------------
 
     if morador_atual == "Morador 1 (Massa)":
         carbos = ["Batata_M1", "Macarrao_M1", "Mandioca_M1"]
@@ -84,25 +124,26 @@ def gerar_refeicao_fixa(
 
     carbos = aplicar_regras_inteligentes(proteina, carbos)
 
-    # ---------------- CONTROLE DE FREQUÊNCIA ----------------
-
-    carbos_filtrados = []
-
-    for c in carbos:
-        if "Macarrao" in c and contador_carbo["Macarrao"] < LIMITES_CARBO["Macarrao"]:
-            carbos_filtrados.append(c)
-        elif "Mandioca" in c and contador_carbo["Mandioca"] < LIMITES_CARBO["Mandioca"]:
-            carbos_filtrados.append(c)
-        elif "Batata" in c and contador_carbo["Batata"] < LIMITES_CARBO["Batata"]:
-            carbos_filtrados.append(c)
+    carbos_filtrados = [
+        c for c in carbos
+        if (
+            ("Macarrao" in c and contador_carbo["Macarrao"] < LIMITES_CARBO["Macarrao"]) or
+            ("Mandioca" in c and contador_carbo["Mandioca"] < LIMITES_CARBO["Mandioca"]) or
+            ("Batata" in c and contador_carbo["Batata"] < LIMITES_CARBO["Batata"])
+        )
+    ]
 
     if not carbos_filtrados:
         carbos_filtrados = carbos
 
     carbo_key = random.choice(carbos_filtrados)
+
+    if carbo_key not in alimentos:
+        raise KeyError(f"Carbo '{carbo_key}' não encontrado.")
+
     carbo = alimentos[carbo_key]
 
-    # atualizar contador
+    # Atualiza contador
     if "Macarrao" in carbo_key:
         contador_carbo["Macarrao"] += 1
     elif "Mandioca" in carbo_key:
@@ -115,10 +156,16 @@ def gerar_refeicao_fixa(
         "carbo": carbo
     }
 
-    if incluir_legume:
-        refeicao["legume"] = alimentos[random.choice(LEGUMES)]
+    # ---------------- LEGUME ----------------
 
-    return aplicar_preparo(refeicao)
+# ---------------- LEGUME ----------------
+
+    if incluir_legume:
+        legumes_disponiveis = [l for l in LEGUMES if l in alimentos]
+
+        if legumes_disponiveis:
+            legume_key = random.choice(legumes_disponiveis)
+            refeicao["legume"] = alimentos[legume_key]
 
 
 # =========================================================
@@ -126,6 +173,11 @@ def gerar_refeicao_fixa(
 # =========================================================
 
 def gerar_lanche(morador_atual, rap10_count, limite_rap10):
+    """
+    Gera lanche considerando:
+    - Morador
+    - Limite de Rap10 semanal
+    """
 
     opcoes = []
     pesos = []
@@ -153,17 +205,16 @@ def gerar_lanche(morador_atual, rap10_count, limite_rap10):
             "Vitamina de Banana + Aveia"
         ]
         pesos += [3, 3]
-
         opcoes.append("Sanduíche Presunto + Mussarela")
         pesos.append(1)
 
+    # Rap10 limitado
     if rap10_count < limite_rap10:
         recheios = random.sample(
             ["Frango Desfiado", "Presunto", "Queijo"],
             k=random.choice([1, 2])
         )
-        nome_rap10 = "Rap10 + " + " + ".join(recheios)
-        opcoes.append(nome_rap10)
+        opcoes.append("Rap10 + " + " + ".join(recheios))
         pesos.append(1)
 
     lanche_escolhido = random.choices(opcoes, weights=pesos, k=1)[0]
@@ -179,6 +230,19 @@ def gerar_lanche(morador_atual, rap10_count, limite_rap10):
 # =========================================================
 
 def gerar_cardapio(morador_atual, config_local, limite_rap10, alimentos):
+    """
+    Gera cardápio semanal completo.
+
+    Retorna lista de 7 dias:
+    [
+        {
+            "Dia": "Seg",
+            "Almoço": {...},
+            "Lanche": {...},
+            "Jantar": {...}
+        }
+    ]
+    """
 
     dias = ["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"]
     semana = []
@@ -203,11 +267,11 @@ def gerar_cardapio(morador_atual, config_local, limite_rap10, alimentos):
 
     for dia in dias:
 
-        # ---------------- ALMOÇO ----------------
+        # ================= ALMOÇO =================
         while True:
 
             if not proteinas_semana:
-                raise ValueError("Proteínas esgotadas antes do fim da semana.")
+                raise ValueError("Proteínas insuficientes para gerar a semana.")
 
             tipo_proteina = random.choice(proteinas_semana)
 
@@ -228,7 +292,7 @@ def gerar_cardapio(morador_atual, config_local, limite_rap10, alimentos):
 
         ultima_refeicao_id = id_atual
 
-        # ---------------- LANCHE ----------------
+        # ================= LANCHE =================
         lanche = gerar_lanche(morador_atual, rap10_count, limite_rap10)
 
         if lanche["tipo"] == "rap10":
@@ -236,11 +300,11 @@ def gerar_cardapio(morador_atual, config_local, limite_rap10, alimentos):
 
         ultima_refeicao_id = ("lanche", lanche["nome"])
 
-        # ---------------- JANTAR ----------------
+        # ================= JANTAR =================
         while True:
 
             if not proteinas_semana:
-                raise ValueError("Proteínas esgotadas antes do fim da semana.")
+                raise ValueError("Proteínas insuficientes para gerar a semana.")
 
             tipo_proteina = random.choice(proteinas_semana)
 
