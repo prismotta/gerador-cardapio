@@ -308,21 +308,26 @@ def obter_alimento_por_chave(usuario_id, chave):
 # =========================================================
 
 def inserir_alimentos_padrao(usuario_id):
-    """
-    Insere alimentos padrão para novo usuário.
-    Executado apenas na primeira entrada.
-    """
+
     alimentos_padrao = {
+        # PROTEÍNAS
         "Frango_M1": ("Frango", 220, 18.98),
         "Frango_M2": ("Frango", 150, 18.98),
         "Hamburguer_M1": ("Hambúrguer", 300, 22),
         "Hamburguer_M2": ("Hambúrguer", 150, 22),
+
+        # CARBOS
         "Batata_M1": ("Batata", 300, 7),
         "Batata_M2": ("Batata", 180, 7),
         "Macarrao_M1": ("Macarrão", 130, 6.68),
         "Macarrao_M2": ("Macarrão", 80, 6.68),
         "Mandioca_M1": ("Mandioca", 300, 8),
         "Mandioca_M2": ("Mandioca", 200, 8),
+
+        # LEGUMES
+        "Pepino": ("Pepino", 80, 6),
+        "Tomate": ("Tomate", 100, 8),
+        "Cenoura": ("Cenoura", 60, 5),
     }
 
     for chave, (nome, g, preco) in alimentos_padrao.items():
