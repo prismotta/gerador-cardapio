@@ -109,8 +109,9 @@ def listar_moradores(usuario_id):
 moradores = listar_moradores(usuario_id)
 
 if not moradores:
-    st.error("Nenhum morador cadastrado.")
-    st.stop()
+    from database.db import onboarding_inicial
+    onboarding_inicial(usuario_id)
+    moradores = listar_moradores(usuario_id)
 
 # =========================================================
 # INTERFACE
