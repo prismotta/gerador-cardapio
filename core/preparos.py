@@ -1,17 +1,8 @@
 """
 core/preparos.py
 -------------------------------------------------------
-Responsável por formatar o nome final das refeições,
-incluindo tipo de preparo e exibição de peso.
-
-Este módulo:
-- NÃO acessa banco
-- NÃO altera estrutura base da refeição
-- Apenas adiciona campos formatados para exibição
-
-Campos adicionados:
-- proteina_formatada
-- carbo_formatado
+Responsável por formatar o nome final das refeições.
+Compatível com nova modelagem.
 -------------------------------------------------------
 """
 
@@ -19,19 +10,17 @@ import random
 from config import PREPARO_FRANGO, PREPARO_CARBO
 
 
-def aplicar_preparo(refeicao):
+def _obter_gramas(item):
     """
-    Recebe dicionário:
-    {
-        "proteina": {...},
-        "carbo": {...},
-        "legume": {...} (opcional)
-    }
+    Compatível com:
+    - g
+    - gramas
+    - ausência de peso
+    """
+    return item.get("g") or item.get("gramas") or 0
 
-    Retorna o mesmo dicionário com:
-    - proteina_formatada
-    - carbo_formatado
-    """
+
+def aplicar_preparo(refeicao):
 
     proteina = refeicao["proteina"]
     carbo = refeicao["carbo"]
@@ -47,14 +36,14 @@ def aplicar_preparo(refeicao):
     elif isinstance(proteina, dict) and "Frango" in proteina.get("nome", ""):
 
         preparo = random.choice(PREPARO_FRANGO)
-        peso = proteina.get("g", 0)
+        peso = _obter_gramas(proteina)
 
-        nome_proteina = f"Frango {preparo} ({peso}g)"
+        nome_proteina = f"Frango {preparo} ({peso}g)" if peso else f"Frango {preparo}"
 
     elif isinstance(proteina, dict) and "Hamb" in proteina.get("nome", ""):
 
-        peso = proteina.get("g", 0)
-        nome_proteina = f"Hambúrguer Grelhado ({peso}g)"
+        peso = _obter_gramas(proteina)
+        nome_proteina = f"Hambúrguer Grelhado ({peso}g)" if peso else "Hambúrguer Grelhado"
 
     else:
         nome_proteina = proteina.get("nome", "Proteína")
@@ -64,28 +53,40 @@ def aplicar_preparo(refeicao):
     # =====================================================
 
     nome_carbo_base = carbo.get("nome", "")
-    peso_carbo = carbo.get("g", 0)
+    peso_carbo = _obter_gramas(carbo)
 
     if "Batata" in nome_carbo_base:
 
         preparo = random.choice(PREPARO_CARBO["Batata"])
-        nome_carbo = f"Batata {preparo} ({peso_carbo}g)"
+        nome_carbo = (
+            f"Batata {preparo} ({peso_carbo}g)"
+            if peso_carbo else f"Batata {preparo}"
+        )
 
     elif "Mandioca" in nome_carbo_base:
 
         preparo = random.choice(PREPARO_CARBO["Mandioca"])
-        nome_carbo = f"Mandioca {preparo} ({peso_carbo}g)"
+        nome_carbo = (
+            f"Mandioca {preparo} ({peso_carbo}g)"
+            if peso_carbo else f"Mandioca {preparo}"
+        )
 
     elif "Macarr" in nome_carbo_base:
 
         preparo = random.choice(PREPARO_CARBO["Macarrao"])
-        nome_carbo = f"Macarrão {preparo} ({peso_carbo}g)"
+        nome_carbo = (
+            f"Macarrão {preparo} ({peso_carbo}g)"
+            if peso_carbo else f"Macarrão {preparo}"
+        )
 
     else:
-        nome_carbo = f"{nome_carbo_base} ({peso_carbo}g)"
+        nome_carbo = (
+            f"{nome_carbo_base} ({peso_carbo}g)"
+            if peso_carbo else nome_carbo_base
+        )
 
     # =====================================================
-    # SALVAR CAMPOS FORMATADOS
+    # SALVAR FORMATADOS
     # =====================================================
 
     refeicao["proteina_formatada"] = nome_proteina

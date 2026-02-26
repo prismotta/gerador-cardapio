@@ -1,7 +1,13 @@
 """
 core/gerador.py
 -------------------------------------------------------
-Responsável por toda lógica de geração do cardápio semanal.
+Gerador de cardápio compatível com nova modelagem:
+
+- alimentos (únicos)
+- moradores
+- porcoes
+
+Sem duplicação.
 -------------------------------------------------------
 """
 
@@ -21,36 +27,19 @@ def extrair_id_refeicao(ref):
     return (proteina_nome, carbo_nome)
 
 
-# =========================================================
-# PROTEÍNA
-# =========================================================
-
-def gerar_proteina(morador_atual, config_local, alimentos):
-
-    if morador_atual == "Morador 1 (Massa)":
-        frango = "Frango_M1"
-        hamburguer = "Hamburguer_M1"
-    else:
-        frango = "Frango_M2"
-        hamburguer = "Hamburguer_M2"
-
-    opcoes = ["OVOS", frango, hamburguer]
-
-    if config_local["modo_economico"]:
-        escolha = random.choices(opcoes, weights=[0.4, 0.3, 0.3], k=1)[0]
-    else:
-        escolha = random.choice(opcoes)
-
-    if escolha == "OVOS":
-        return {
-            "tipo": "ovos",
-            "quantidade": config_local["ovos_refeicao"]
+def organizar_alimentos_por_nome(alimentos):
+    """
+    Converte lista [(id, nome, preco)]
+    em dict { nome: {id, nome, preco} }
+    """
+    resultado = {}
+    for alimento_id, nome, preco in alimentos:
+        resultado[nome] = {
+            "id": alimento_id,
+            "nome": nome,
+            "preco": preco
         }
-
-    if escolha not in alimentos:
-        raise KeyError(f"Alimento '{escolha}' não encontrado no banco.")
-
-    return alimentos[escolha]
+    return resultado
 
 
 # =========================================================
@@ -59,11 +48,9 @@ def gerar_proteina(morador_atual, config_local, alimentos):
 
 def gerar_refeicao_fixa(
     tipo_proteina,
-    morador_atual,
-    config_local,
     incluir_legume,
     contador_carbo,
-    alimentos
+    alimentos_dict
 ):
 
     # ---------------- PROTEÍNA ----------------
@@ -71,28 +58,20 @@ def gerar_refeicao_fixa(
     if tipo_proteina == "Ovos":
         proteina = {
             "tipo": "ovos",
-            "quantidade": config_local["ovos_refeicao"]
+            "quantidade": 3
         }
 
-    elif tipo_proteina == "Frango":
-        chave = "Frango_M1" if morador_atual == "Morador 1 (Massa)" else "Frango_M2"
-        proteina = alimentos.get(chave)
-
     else:
-        chave = "Hamburguer_M1" if morador_atual == "Morador 1 (Massa)" else "Hamburguer_M2"
-        proteina = alimentos.get(chave)
+        if tipo_proteina not in alimentos_dict:
+            raise KeyError(f"Proteína '{tipo_proteina}' não encontrada.")
 
-    if not proteina:
-        raise KeyError(f"Proteína '{tipo_proteina}' não encontrada.")
+        proteina = alimentos_dict[tipo_proteina]
 
     # ---------------- CARBO ----------------
 
-    if morador_atual == "Morador 1 (Massa)":
-        carbos = ["Batata_M1", "Macarrao_M1", "Mandioca_M1"]
-    else:
-        carbos = ["Batata_M2", "Macarrao_M2", "Mandioca_M2"]
+    carbos_base = ["Batata", "Macarrao", "Mandioca"]
 
-    carbos = aplicar_regras_inteligentes(proteina, carbos)
+    carbos = aplicar_regras_inteligentes(proteina, carbos_base)
 
     carbos_filtrados = [
         c for c in carbos
@@ -106,35 +85,32 @@ def gerar_refeicao_fixa(
     if not carbos_filtrados:
         carbos_filtrados = carbos
 
-    carbo_key = random.choice(carbos_filtrados)
+    carbo_nome = random.choice(carbos_filtrados)
 
-    if carbo_key not in alimentos:
-        raise KeyError(f"Carbo '{carbo_key}' não encontrado.")
+    if carbo_nome not in alimentos_dict:
+        raise KeyError(f"Carbo '{carbo_nome}' não encontrado.")
 
-    carbo = alimentos[carbo_key]
+    carbo = alimentos_dict[carbo_nome]
 
-    if "Macarrao" in carbo_key:
-        contador_carbo["Macarrao"] += 1
-    elif "Mandioca" in carbo_key:
-        contador_carbo["Mandioca"] += 1
-    elif "Batata" in carbo_key:
-        contador_carbo["Batata"] += 1
+    contador_carbo[carbo_nome] += 1
 
     refeicao = {
         "proteina": proteina,
         "carbo": carbo
     }
 
-    # ---------------- LEGUME (CORRIGIDO) ----------------
+    # ---------------- LEGUME ----------------
 
     if incluir_legume:
-        legumes_disponiveis = [l for l in LEGUMES if l in alimentos]
+        legumes_disponiveis = [
+            l for l in LEGUMES
+            if l in alimentos_dict
+        ]
 
         if legumes_disponiveis:
-            legume_key = random.choice(legumes_disponiveis)
-            refeicao["legume"] = alimentos[legume_key]
+            legume_nome = random.choice(legumes_disponiveis)
+            refeicao["legume"] = alimentos_dict[legume_nome]
 
-    # 🔥 ESSENCIAL
     return aplicar_preparo(refeicao)
 
 
@@ -142,36 +118,16 @@ def gerar_refeicao_fixa(
 # LANCHE
 # =========================================================
 
-def gerar_lanche(morador_atual, rap10_count, limite_rap10):
+def gerar_lanche(rap10_count, limite_rap10):
 
-    opcoes = []
-    pesos = []
+    opcoes = [
+        "Banana + Aveia",
+        "Sanduíche Presunto + Mussarela",
+        "Pão + Banana + Pasta de Amendoim",
+        "Vitamina de Banana + Aveia"
+    ]
 
-    if morador_atual == "Morador 1 (Massa)":
-        opcoes += [
-            "Banana + Aveia",
-            "Sanduíche Presunto + Mussarela",
-            "Pão + Banana + Pasta de Amendoim"
-        ]
-        pesos += [2, 2, 2]
-
-        variacao = random.choice(["Leite", "Pasta de Amendoim"])
-
-        if variacao == "Leite":
-            opcoes.append("Vitamina de Banana + Aveia + Leite")
-        else:
-            opcoes.append("Vitamina de Banana + Aveia + Pasta de Amendoim")
-
-        pesos.append(2)
-
-    else:
-        opcoes += [
-            "Banana + Aveia",
-            "Vitamina de Banana + Aveia"
-        ]
-        pesos += [3, 3]
-        opcoes.append("Sanduíche Presunto + Mussarela")
-        pesos.append(1)
+    pesos = [3, 2, 2, 2]
 
     if rap10_count < limite_rap10:
         recheios = random.sample(
@@ -181,11 +137,11 @@ def gerar_lanche(morador_atual, rap10_count, limite_rap10):
         opcoes.append("Rap10 + " + " + ".join(recheios))
         pesos.append(1)
 
-    lanche_escolhido = random.choices(opcoes, weights=pesos, k=1)[0]
+    escolhido = random.choices(opcoes, weights=pesos, k=1)[0]
 
     return {
-        "tipo": "rap10" if lanche_escolhido.startswith("Rap10") else "simples",
-        "nome": lanche_escolhido
+        "tipo": "rap10" if escolhido.startswith("Rap10") else "simples",
+        "nome": escolhido
     }
 
 
@@ -193,11 +149,13 @@ def gerar_lanche(morador_atual, rap10_count, limite_rap10):
 # CARDÁPIO SEMANAL
 # =========================================================
 
-def gerar_cardapio(morador_atual, config_local, limite_rap10, alimentos):
+def gerar_cardapio(morador_id, alimentos):
 
     dias = ["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"]
     semana = []
     rap10_count = 0
+
+    alimentos_dict = organizar_alimentos_por_nome(alimentos)
 
     proteinas_semana = (
         ["Frango"] * 6 +
@@ -213,7 +171,7 @@ def gerar_cardapio(morador_atual, config_local, limite_rap10, alimentos):
         "Batata": 0
     }
 
-    incluir_legume = morador_atual == "Morador 2 (Emagrecer)"
+    incluir_legume = True
     ultima_refeicao_id = None
 
     for dia in dias:
@@ -228,11 +186,9 @@ def gerar_cardapio(morador_atual, config_local, limite_rap10, alimentos):
 
             almoco = gerar_refeicao_fixa(
                 tipo_proteina,
-                morador_atual,
-                config_local,
                 incluir_legume,
                 contador_carbo,
-                alimentos
+                alimentos_dict
             )
 
             id_atual = extrair_id_refeicao(almoco)
@@ -244,7 +200,7 @@ def gerar_cardapio(morador_atual, config_local, limite_rap10, alimentos):
         ultima_refeicao_id = id_atual
 
         # ================= LANCHE =================
-        lanche = gerar_lanche(morador_atual, rap10_count, limite_rap10)
+        lanche = gerar_lanche(rap10_count, limite_rap10=3)
 
         if lanche["tipo"] == "rap10":
             rap10_count += 1
@@ -261,11 +217,9 @@ def gerar_cardapio(morador_atual, config_local, limite_rap10, alimentos):
 
             jantar = gerar_refeicao_fixa(
                 tipo_proteina,
-                morador_atual,
-                config_local,
                 incluir_legume,
                 contador_carbo,
-                alimentos
+                alimentos_dict
             )
 
             id_atual = extrair_id_refeicao(jantar)
@@ -283,4 +237,70 @@ def gerar_cardapio(morador_atual, config_local, limite_rap10, alimentos):
             "Jantar": jantar
         })
 
+    return semana
+
+# =========================================================
+# REGENERAÇÃO PARCIAL
+# =========================================================
+
+def regenerar_almoco(semana, dia_index, alimentos):
+
+    alimentos_dict = organizar_alimentos_por_nome(alimentos)
+
+    contador_carbo = {
+        "Macarrao": 0,
+        "Mandioca": 0,
+        "Batata": 0
+    }
+
+    incluir_legume = True
+
+    tipo_proteina = random.choice(["Frango", "Hambúrguer", "Ovos"])
+
+    novo_almoco = gerar_refeicao_fixa(
+        tipo_proteina,
+        incluir_legume,
+        contador_carbo,
+        alimentos_dict
+    )
+
+    semana[dia_index]["Almoço"] = novo_almoco
+    return semana
+
+
+def regenerar_lanche(semana, dia_index):
+
+    rap10_count = sum(
+        1 for d in semana
+        if d["Lanche"].get("tipo") == "rap10"
+    )
+
+    novo_lanche = gerar_lanche(rap10_count, limite_rap10=3)
+
+    semana[dia_index]["Lanche"] = novo_lanche
+    return semana
+
+
+def regenerar_jantar(semana, dia_index, alimentos):
+
+    alimentos_dict = organizar_alimentos_por_nome(alimentos)
+
+    contador_carbo = {
+        "Macarrao": 0,
+        "Mandioca": 0,
+        "Batata": 0
+    }
+
+    incluir_legume = True
+
+    tipo_proteina = random.choice(["Frango", "Hambúrguer", "Ovos"])
+
+    novo_jantar = gerar_refeicao_fixa(
+        tipo_proteina,
+        incluir_legume,
+        contador_carbo,
+        alimentos_dict
+    )
+
+    semana[dia_index]["Jantar"] = novo_jantar
     return semana

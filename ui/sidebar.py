@@ -1,23 +1,38 @@
 import streamlit as st
 
 
-def render_sidebar():
+def render_sidebar(moradores):
 
     st.sidebar.header("Configurações")
 
-    morador = st.sidebar.selectbox(
+    # =====================================================
+    # SELEÇÃO DINÂMICA DE MORADOR
+    # =====================================================
+
+    nomes_moradores = [m[1] for m in moradores]
+
+    morador_nome = st.sidebar.selectbox(
         "Selecionar morador",
-        ["Morador 1 (Massa)", "Morador 2 (Emagrecer)"]
+        nomes_moradores
     )
 
-    # =========================
-    # CONFIG POR MORADOR
-    # =========================
+    morador_data = next(m for m in moradores if m[1] == morador_nome)
+    morador_id = morador_data[0]
+    meta_diaria = morador_data[2]
 
-    if morador == "Morador 1 (Massa)":
-        config_local = st.session_state.config_m1
-    else:
-        config_local = st.session_state.config_m2
+    # =====================================================
+    # CONFIG LOCAL POR MORADOR
+    # =====================================================
+
+    chave_config = f"config_{morador_id}"
+
+    if chave_config not in st.session_state:
+        st.session_state[chave_config] = {
+            "modo_economico": False,
+            "ovos_refeicao": 3
+        }
+
+    config_local = st.session_state[chave_config]
 
     config_local["modo_economico"] = st.sidebar.checkbox(
         "Modo econômico",
@@ -30,31 +45,9 @@ def render_sidebar():
         config_local["ovos_refeicao"]
     )
 
-    # =========================
-    # META DE CONSUMO (POR MORADOR)
-    # =========================
-
-    chave_meta = f"meta_{morador}"
-
-    if chave_meta not in st.session_state:
-        if morador == "Morador 1 (Massa)":
-            st.session_state[chave_meta] = 2000
-        else:
-            st.session_state[chave_meta] = 1400
-
-    meta_diaria = st.sidebar.number_input(
-        "Meta de consumo diário (g)",
-        min_value=500,
-        max_value=5000,
-        step=100,
-        value=st.session_state[chave_meta]
-    )
-
-    st.session_state[chave_meta] = meta_diaria
-
-    # =========================
+    # =====================================================
     # RAP10
-    # =========================
+    # =====================================================
 
     limite_rap10 = st.sidebar.slider(
         "Limite de Rap10 por semana",
@@ -66,4 +59,4 @@ def render_sidebar():
 
     mostrar_resumo = st.sidebar.checkbox("Mostrar lista de compras")
 
-    return morador, config_local, limite_rap10, mostrar_resumo, meta_diaria
+    return morador_id, morador_nome, config_local, limite_rap10, mostrar_resumo, meta_diaria

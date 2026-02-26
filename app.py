@@ -3,16 +3,13 @@ app.py
 -------------------------------------------------------
 Arquivo principal da aplicação.
 
-Responsável por:
-- Inicializar banco
-- Controlar login
-- Garantir onboarding de alimentos
-- Controlar modo administrador
-- Gerar cardápio
-- Exibir listas e métricas
+Compatível com nova modelagem:
+- usuarios
+- moradores
+- alimentos
+- porcoes
 
-Este arquivo NÃO contém regra de negócio.
-Ele apenas orquestra os módulos.
+Sem duplicação.
 -------------------------------------------------------
 """
 
@@ -24,13 +21,19 @@ import streamlit as st
 
 from database.db import (
     criar_tabelas,
-    carregar_alimentos_dict,
-    garantir_alimentos_iniciais
+    get_connection,
+    get_placeholder
+)
+
+from core.gerador import (
+    gerar_cardapio,
+    regenerar_almoco,
+    regenerar_lanche,
+    regenerar_jantar
 )
 
 from ui.login import tela_login
 from ui.painel_alimentos import painel_alimentos
-
 from core.gerador import gerar_cardapio
 from ui.sidebar import render_sidebar
 from ui.botoes import render_botoes
@@ -66,25 +69,51 @@ if not st.session_state.logado:
     tela_login()
     st.stop()
 
-# Garantir que usuario_id seja inteiro
-usuario_id = st.session_state.get("usuario_id")
+usuario = st.session_state.get("usuario_id")
 
-if isinstance(usuario_id, tuple):
-    usuario_id = usuario_id[0]
-    st.session_state.usuario_id = usuario_id
+if not usuario:
+    st.error("Usuário não autenticado.")
+    st.stop()
 
-if not usuario_id:
-    st.error("Erro ao identificar usuário.")
+if isinstance(usuario, tuple):
+    usuario_id = usuario[0]
+else:
+    usuario_id = usuario
+
+usuario_id = int(usuario_id)
+st.session_state.usuario_id = usuario_id
+
+# =========================================================
+# BUSCAR MORADORES DINAMICAMENTE
+# =========================================================
+
+def listar_moradores(usuario_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    placeholder = get_placeholder()
+
+    cursor.execute(
+        f"""
+        SELECT id, nome, meta_calorica
+        FROM moradores
+        WHERE usuario_id = {placeholder}
+        """,
+        (usuario_id,)
+    )
+
+    dados = cursor.fetchall()
+    conn.close()
+    return dados
+
+
+moradores = listar_moradores(usuario_id)
+
+if not moradores:
+    st.error("Nenhum morador cadastrado.")
     st.stop()
 
 # =========================================================
-# ONBOARDING AUTOMÁTICO
-# =========================================================
-
-garantir_alimentos_iniciais(usuario_id)
-
-# =========================================================
-# INTERFACE PRINCIPAL
+# INTERFACE
 # =========================================================
 
 st.title("Gerador de Cardápio")
@@ -99,144 +128,98 @@ with col1:
 with col2:
     modo_admin = st.toggle("Modo administrador")
 
-# =========================================================
-# PAINEL ADMIN
-# =========================================================
-
 if modo_admin:
     painel_alimentos(usuario_id)
     st.stop()
 
 # =========================================================
-# ESTADO INICIAL
+# SELEÇÃO DINÂMICA DE MORADOR
 # =========================================================
 
-if "config_m1" not in st.session_state:
-    st.session_state.config_m1 = {
-        "modo_economico": False,
-        "ovos_refeicao": 3
-    }
+nomes_moradores = [m[1] for m in moradores]
+morador_nome = st.selectbox("Selecionar morador", nomes_moradores)
 
-if "config_m2" not in st.session_state:
-    st.session_state.config_m2 = {
-        "modo_economico": False,
-        "ovos_refeicao": 2
-    }
-
-if "semana_m1" not in st.session_state:
-    st.session_state.semana_m1 = None
-
-if "semana_m2" not in st.session_state:
-    st.session_state.semana_m2 = None
+morador_data = next(m for m in moradores if m[1] == morador_nome)
+morador_id = morador_data[0]
+meta_diaria = morador_data[2]
 
 # =========================================================
-# SIDEBAR CONFIGURAÇÃO
+# CARREGAR ALIMENTOS DO USUÁRIO
 # =========================================================
 
-morador, config_local, limite_rap10, mostrar_resumo, meta_diaria = render_sidebar()
+def carregar_alimentos(usuario_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    placeholder = get_placeholder()
+
+    cursor.execute(
+        f"""
+        SELECT id, nome, preco
+        FROM alimentos
+        WHERE usuario_id = {placeholder}
+        """,
+        (usuario_id,)
+    )
+
+    dados = cursor.fetchall()
+    conn.close()
+
+    return dados
+
+
+alimentos = carregar_alimentos(usuario_id)
+
+if not alimentos:
+    st.warning("Nenhum alimento cadastrado.")
+    st.stop()
 
 # =========================================================
-# FUNÇÃO GERADORA
+# GERAÇÃO
 # =========================================================
+
+if "semana" not in st.session_state:
+    st.session_state.semana = None
+
 
 def gerar_semana():
-    """
-    Busca alimentos atualizados do banco
-    e gera cardápio.
-    """
-
-    alimentos = carregar_alimentos_dict(usuario_id)
-
-    if not alimentos:
-        st.warning("Nenhum alimento cadastrado.")
-        return None
-
     return gerar_cardapio(
-        morador,
-        config_local,
-        limite_rap10,
+        morador_id,
         alimentos
     )
 
-# =========================================================
-# INICIALIZAÇÃO SEMANA
-# =========================================================
 
-if morador == "Morador 1 (Massa)":
-
-    if st.session_state.semana_m1 is None:
-        st.session_state.semana_m1 = gerar_semana()
-
-    semana_ativa = st.session_state.semana_m1
-
-else:
-
-    if st.session_state.semana_m2 is None:
-        st.session_state.semana_m2 = gerar_semana()
-
-    semana_ativa = st.session_state.semana_m2
-
-# =========================================================
-# REGERAÇÃO AUTOMÁTICA
-# =========================================================
-
-chave_config = f"config_anterior_{morador}"
-
-config_atual = {
-    "modo_economico": config_local["modo_economico"],
-    "ovos_refeicao": config_local["ovos_refeicao"],
-    "limite_rap10": limite_rap10
-}
-
-if chave_config not in st.session_state:
-    st.session_state[chave_config] = config_atual
-
-if st.session_state[chave_config] != config_atual:
-
-    st.session_state[chave_config] = config_atual
-
-    nova_semana = gerar_semana()
-
-    if morador == "Morador 1 (Massa)":
-        st.session_state.semana_m1 = nova_semana
-        semana_ativa = nova_semana
-    else:
-        st.session_state.semana_m2 = nova_semana
-        semana_ativa = nova_semana
-
-# =========================================================
-# BOTÕES
-# =========================================================
+if st.session_state.semana is None:
+    st.session_state.semana = gerar_semana()
 
 acao = render_botoes()
 
 if acao == "nova":
+    st.session_state.semana = gerar_semana()
 
-    nova_semana = gerar_semana()
+elif acao == "almoco":
+    st.session_state.semana = regenerar_almoco(
+        st.session_state.semana,
+        dia_index,
+        alimentos
+    )
 
-    if morador == "Morador 1 (Massa)":
-        st.session_state.semana_m1 = nova_semana
-        semana_ativa = nova_semana
-    else:
-        st.session_state.semana_m2 = nova_semana
-        semana_ativa = nova_semana
+elif acao == "lanche":
+    st.session_state.semana = regenerar_lanche(
+        st.session_state.semana,
+        dia_index
+    )
+
+elif acao == "jantar":
+    st.session_state.semana = regenerar_jantar(
+        st.session_state.semana,
+        dia_index,
+        alimentos
+    )
 
 # =========================================================
 # EXIBIÇÃO
 # =========================================================
 
-if semana_ativa:
-
-    mostrar_cardapio(semana_ativa, morador, meta_diaria)
-
-    if mostrar_resumo:
-        mostrar_lista_individual(semana_ativa, morador)
-
-    with st.expander("Lista unificada (Morador 1 + Morador 2)"):
-
-        if st.session_state.semana_m1 and st.session_state.semana_m2:
-
-            mostrar_lista_familia(
-                st.session_state.semana_m1,
-                st.session_state.semana_m2
-            )
+if st.session_state.semana:
+    mostrar_cardapio(st.session_state.semana, morador_nome, meta_diaria)
+    mostrar_lista_individual(st.session_state.semana, morador_nome)

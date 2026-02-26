@@ -4,31 +4,19 @@ core/regras.py
 Módulo responsável pelas regras inteligentes de
 combinação entre proteína e carboidrato.
 
-Função:
-- Impedir combinações indesejadas
-- Centralizar lógica de restrições
-- Permitir expansão futura (ex: regras por usuário)
+Este módulo:
+- NÃO acessa banco
+- NÃO depende de chave por morador
+- Trabalha apenas com nomes base
 
-Este módulo NÃO acessa banco.
-Apenas aplica lógica sobre listas recebidas.
+Exemplo de carbos recebidos:
+["Batata", "Macarrao", "Mandioca"]
 -------------------------------------------------------
 """
 
 # =========================================================
 # REGRAS DE COMBINAÇÃO
 # =========================================================
-
-"""
-Estrutura:
-
-{
-    "Tipo_Proteina": ["Carbo_Proibido_1", "Carbo_Proibido_2"]
-}
-
-Importante:
-Os valores devem corresponder ao padrão usado
-nas chaves de carboidrato (ex: "Macarrao_M1").
-"""
 
 REGRAS_COMBINACAO = {
     "Ovos": ["Macarrao", "Mandioca"],
@@ -37,60 +25,52 @@ REGRAS_COMBINACAO = {
 
 
 # =========================================================
+# IDENTIFICAR TIPO DA PROTEÍNA
+# =========================================================
+
+def identificar_tipo_proteina(proteina):
+    """
+    Determina o tipo base da proteína.
+    """
+
+    if not isinstance(proteina, dict):
+        return None
+
+    if proteina.get("tipo") == "ovos":
+        return "Ovos"
+
+    nome = proteina.get("nome", "")
+
+    if "Hamb" in nome:
+        return "Hambúrguer"
+
+    if "Frango" in nome:
+        return "Frango"
+
+    return nome
+
+
+# =========================================================
 # FUNÇÃO PRINCIPAL
 # =========================================================
 
 def aplicar_regras_inteligentes(proteina, carbos):
-    """
-    Aplica regras de restrição entre proteína e carboidratos.
 
-    Parâmetros:
-    - proteina: dict (ex: {"nome": "Frango", "g": 220})
-    - carbos: lista de chaves de carboidrato
+    tipo_proteina = identificar_tipo_proteina(proteina)
 
-    Retorna:
-    - Lista filtrada de carbos
-    """
-
-    # Segurança defensiva
-    if not isinstance(proteina, dict):
+    if not tipo_proteina:
         return carbos
-
-    # =====================================================
-    # IDENTIFICAR TIPO DE PROTEÍNA
-    # =====================================================
-
-    if proteina.get("tipo") == "ovos":
-        tipo_proteina = "Ovos"
-    else:
-        nome = proteina.get("nome", "")
-
-        if "Hamb" in nome:
-            tipo_proteina = "Hambúrguer"
-        elif "Frango" in nome:
-            tipo_proteina = "Frango"
-        else:
-            tipo_proteina = nome
-
-    # =====================================================
-    # OBTER REGRAS
-    # =====================================================
 
     proibidos = REGRAS_COMBINACAO.get(tipo_proteina)
 
-    # Se não houver regra para essa proteína
+    # Se não houver regra
     if not proibidos:
         return carbos
 
-    # =====================================================
-    # FILTRAR CARBOS
-    # =====================================================
-
     carbos_filtrados = [
         c for c in carbos
-        if not any(proibido in c for proibido in proibidos)
+        if not any(p in c for p in proibidos)
     ]
 
-    # Fallback de segurança
-    # Nunca deixamos lista vazia para evitar crash
+    # Nunca retorna lista vazia
     return carbos_filtrados if carbos_filtrados else carbos
