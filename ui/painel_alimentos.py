@@ -1,145 +1,165 @@
 """
 ui/painel_alimentos.py
 -------------------------------------------------------
-Painel administrativo para gerenciamento de alimentos.
+Painel administrativo compatível com nova modelagem:
 
-Permite:
-- Listar alimentos do usuário
-- Editar nome, gramas e preço
-- Excluir alimento
-- Adicionar novo alimento
-
-Fluxo:
-UI → db.py → Banco
-
-Apenas usuários autenticados podem acessar.
+- alimentos (nome + preco)
+- moradores
+- porcoes (gramas por morador)
 -------------------------------------------------------
 """
 
 import streamlit as st
 from database.db import (
-    listar_alimentos_usuario,
-    atualizar_alimento,
-    deletar_alimento,
-    inserir_alimento,
+    get_connection,
+    get_placeholder,
 )
 
 
-def painel_alimentos(usuario_id):
-    """
-    Renderiza painel de gerenciamento de alimentos.
-    """
+# =========================================================
+# FUNÇÕES AUXILIARES
+# =========================================================
 
-    st.subheader("🛠 Gerenciar Alimentos")
+def listar_alimentos(usuario_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    placeholder = get_placeholder()
+
+    cursor.execute(
+        f"""
+        SELECT id, nome, preco
+        FROM alimentos
+        WHERE usuario_id = {placeholder}
+        """,
+        (usuario_id,)
+    )
+
+    dados = cursor.fetchall()
+    conn.close()
+    return dados
+
+
+def listar_moradores(usuario_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    placeholder = get_placeholder()
+
+    cursor.execute(
+        f"""
+        SELECT id, nome, meta_calorica
+        FROM moradores
+        WHERE usuario_id = {placeholder}
+        """,
+        (usuario_id,)
+    )
+
+    dados = cursor.fetchall()
+    conn.close()
+    return dados
+
+
+# =========================================================
+# PAINEL
+# =========================================================
+
+def painel_alimentos(usuario_id):
+
+    st.subheader("🛠 Painel Administrativo")
     st.markdown("---")
 
-    alimentos = listar_alimentos_usuario(usuario_id)
-
     # =====================================================
-    # LISTA DE ALIMENTOS EXISTENTES
+    # ALIMENTOS
     # =====================================================
 
-    if not alimentos:
-        st.info("Nenhum alimento cadastrado ainda.")
+    st.subheader("🍗 Alimentos")
 
-    for chave, nome, gramas, preco in alimentos:
+    alimentos = listar_alimentos(usuario_id)
 
-        with st.expander(f"{nome} ({chave})", expanded=False):
+    for alimento_id, nome, preco in alimentos:
+
+        with st.expander(f"{nome}"):
 
             novo_nome = st.text_input(
-                "Nome do alimento",
+                "Nome",
                 value=nome,
-                key=f"nome_{chave}"
-            )
-
-            novo_gramas = st.number_input(
-                "Gramas por refeição",
-                min_value=1,
-                value=int(gramas),
-                key=f"g_{chave}"
+                key=f"nome_{alimento_id}"
             )
 
             novo_preco = st.number_input(
                 "Preço por kg",
                 min_value=0.0,
                 value=float(preco),
-                key=f"p_{chave}"
+                key=f"preco_{alimento_id}"
             )
 
-            col1, col2 = st.columns(2)
+            if st.button("Salvar", key=f"save_al_{alimento_id}"):
 
-            # =================================================
-            # SALVAR ALTERAÇÕES
-            # =================================================
+                conn = get_connection()
+                cursor = conn.cursor()
+                placeholder = get_placeholder()
 
-            if col1.button("💾 Salvar", key=f"save_{chave}"):
-
-                if not novo_nome.strip():
-                    st.error("O nome não pode estar vazio.")
-                    return
-
-                atualizar_alimento(
-                    usuario_id,
-                    chave,
-                    novo_nome.strip(),
-                    int(novo_gramas),
-                    float(novo_preco),
+                cursor.execute(
+                    f"""
+                    UPDATE alimentos
+                    SET nome = {placeholder},
+                        preco = {placeholder}
+                    WHERE id = {placeholder}
+                    """,
+                    (novo_nome.strip(), float(novo_preco), alimento_id)
                 )
 
-                st.success("Alimento atualizado com sucesso!")
+                conn.commit()
+                conn.close()
+
+                st.success("Atualizado!")
                 st.rerun()
 
-            # =================================================
-            # EXCLUIR (COM CONFIRMAÇÃO)
-            # =================================================
-
-            if col2.button("🗑 Excluir", key=f"del_{chave}"):
-
-                confirmar = st.checkbox(
-                    "Confirmar exclusão",
-                    key=f"confirm_{chave}"
-                )
-
-                if confirmar:
-                    deletar_alimento(usuario_id, chave)
-                    st.warning("Alimento removido.")
-                    st.rerun()
-
     # =====================================================
-    # ADICIONAR NOVO ALIMENTO
+    # MORADORES
     # =====================================================
 
     st.divider()
-    st.subheader("➕ Adicionar Novo Alimento")
+    st.subheader("👤 Moradores")
 
-    nova_chave = st.text_input("Chave interna (ex: Arroz_M1)")
-    novo_nome = st.text_input("Nome do alimento")
-    novo_gramas = st.number_input("Gramas por refeição", min_value=1, step=10)
-    novo_preco = st.number_input("Preço por kg", min_value=0.0, step=0.5)
+    moradores = listar_moradores(usuario_id)
 
-    if st.button("Adicionar alimento", use_container_width=True):
+    for morador_id, nome, meta in moradores:
 
-        nova_chave = nova_chave.strip()
-        novo_nome = novo_nome.strip()
+        with st.expander(f"{nome}"):
 
-        if not nova_chave or not novo_nome:
-            st.error("Preencha chave e nome.")
-            return
+            novo_nome = st.text_input(
+                "Nome",
+                value=nome,
+                key=f"mor_nome_{morador_id}"
+            )
 
-        # 🔒 Evitar chave duplicada
-        chaves_existentes = [a[0] for a in alimentos]
+            nova_meta = st.number_input(
+                "Meta calórica",
+                min_value=0,
+                value=int(meta),
+                key=f"meta_{morador_id}"
+            )
 
-        if nova_chave in chaves_existentes:
-            st.error("Essa chave já existe.")
-            return
+            if st.button("Salvar", key=f"save_mor_{morador_id}"):
 
-        inserir_alimento(
-            usuario_id,
-            nova_chave,
-            novo_nome,
-            int(novo_gramas),
-            float(novo_preco),
-        )
+                conn = get_connection()
+                cursor = conn.cursor()
+                placeholder = get_placeholder()
 
-        st.success("Alimento adicionado com sucesso!")
-        st.rerun()
+                cursor.execute(
+                    f"""
+                    UPDATE moradores
+                    SET nome = {placeholder},
+                        meta_calorica = {placeholder}
+                    WHERE id = {placeholder}
+                    """,
+                    (novo_nome.strip(), int(nova_meta), morador_id)
+                )
+
+                conn.commit()
+                conn.close()
+
+                st.success("Morador atualizado!")
+                st.rerun()
+
+    st.info("⚙ Porções por morador serão integradas na próxima melhoria.")
