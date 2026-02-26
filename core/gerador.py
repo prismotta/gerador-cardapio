@@ -69,14 +69,14 @@ def gerar_refeicao_fixa(
 
     # ---------------- CARBO ----------------
 
-    carbos_base = ["Batata", "Macarrao", "Mandioca"]
+    carbos_base = ["Batata", "Macarrão", "Mandioca"]
 
     carbos = aplicar_regras_inteligentes(proteina, carbos_base)
 
     carbos_filtrados = [
         c for c in carbos
         if (
-            ("Macarrao" in c and contador_carbo["Macarrao"] < LIMITES_CARBO["Macarrao"]) or
+            ("Macarrão" in c and contador_carbo["Macarrão"] < LIMITES_CARBO["Macarrão"]) or
             ("Mandioca" in c and contador_carbo["Mandioca"] < LIMITES_CARBO["Mandioca"]) or
             ("Batata" in c and contador_carbo["Batata"] < LIMITES_CARBO["Batata"])
         )
@@ -166,7 +166,7 @@ def gerar_cardapio(morador_id, alimentos):
     random.shuffle(proteinas_semana)
 
     contador_carbo = {
-        "Macarrao": 0,
+        "Macarrão": 0,
         "Mandioca": 0,
         "Batata": 0
     }
@@ -248,7 +248,7 @@ def regenerar_almoco(semana, dia_index, alimentos):
     alimentos_dict = organizar_alimentos_por_nome(alimentos)
 
     contador_carbo = {
-        "Macarrao": 0,
+        "Macarrão": 0,
         "Mandioca": 0,
         "Batata": 0
     }
@@ -286,7 +286,7 @@ def regenerar_jantar(semana, dia_index, alimentos):
     alimentos_dict = organizar_alimentos_por_nome(alimentos)
 
     contador_carbo = {
-        "Macarrao": 0,
+        "Macarrão": 0,
         "Mandioca": 0,
         "Batata": 0
     }
