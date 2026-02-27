@@ -92,7 +92,19 @@ morador_nome = st.selectbox("Selecionar morador", nomes_moradores)
 
 morador_data = next(m for m in moradores if m[1] == morador_nome)
 morador_id = morador_data[0]
-meta_diaria = morador_data[2]
+meta_padrao = int(morador_data[2])
+
+meta_key = f"meta_diaria_{morador_id}"
+if meta_key not in st.session_state:
+    st.session_state[meta_key] = meta_padrao
+
+meta_diaria = st.number_input(
+    "Meta diária (g)",
+    min_value=0,
+    value=int(st.session_state[meta_key]),
+    step=50,
+    key=meta_key,
+)
 
 
 def carregar_alimentos(usuario_id):
