@@ -110,6 +110,49 @@ def salvar_porcoes_morador(morador_id, porcoes):
         conn.close()
 
 
+def salvar_restricoes_morador(morador_id, alimento_ids_restritos, todos_alimento_ids):
+    conn = get_connection()
+    cursor = conn.cursor()
+    placeholder = get_placeholder()
+    restritos = set(alimento_ids_restritos)
+    try:
+        for alimento_id in todos_alimento_ids:
+            if alimento_id in restritos:
+                # Restricao vence qualquer configuracao de porcao.
+                cursor.execute(
+                    f"""
+                    DELETE FROM porcoes
+                    WHERE morador_id = {placeholder}
+                      AND alimento_id = {placeholder}
+                    """,
+                    (morador_id, alimento_id),
+                )
+                cursor.execute(
+                    f"""
+                    INSERT INTO porcoes (morador_id, alimento_id, gramas)
+                    VALUES ({placeholder}, {placeholder}, {placeholder})
+                    """,
+                    (morador_id, alimento_id, 0),
+                )
+            else:
+                # Ao remover restricao, apaga apenas marcacoes de 0g.
+                cursor.execute(
+                    f"""
+                    DELETE FROM porcoes
+                    WHERE morador_id = {placeholder}
+                      AND alimento_id = {placeholder}
+                      AND gramas = {placeholder}
+                    """,
+                    (morador_id, alimento_id, 0),
+                )
+        conn.commit()
+        return True
+    except Exception:
+        return False
+    finally:
+        conn.close()
+
+
 def painel_alimentos(usuario_id):
     st.subheader("Painel Administrativo")
     st.markdown("---")
@@ -348,6 +391,27 @@ def painel_alimentos(usuario_id):
     morador_id_porcoes = opcoes_morador[morador_label]
 
     porcoes_atuais = listar_porcoes_morador(morador_id_porcoes)
+    alimentos_por_nome = {nome: alimento_id for alimento_id, nome, _preco in alimentos}
+    restritos_atuais_nomes = [
+        nome for nome, alimento_id in alimentos_por_nome.items()
+        if int(porcoes_atuais.get(alimento_id, -1)) == 0
+    ]
+
+    restritos_nomes = st.multiselect(
+        "Alimentos que este morador nao come",
+        options=sorted(alimentos_por_nome.keys()),
+        default=sorted(restritos_atuais_nomes),
+        key=f"restricoes_{morador_id_porcoes}",
+    )
+    restritos_ids = {alimentos_por_nome[nome] for nome in restritos_nomes}
+
+    if st.button("Salvar restricoes", key=f"salvar_restricoes_{morador_id_porcoes}"):
+        if salvar_restricoes_morador(morador_id_porcoes, restritos_ids, list(alimentos_por_nome.values())):
+            st.success("Restricoes atualizadas.")
+            st.rerun()
+        else:
+            st.error("Nao foi possivel salvar as restricoes.")
+
     valores_porcoes = {}
 
     for alimento_id, nome, _preco in alimentos:
@@ -359,6 +423,7 @@ def painel_alimentos(usuario_id):
             value=valor_padrao,
             step=10,
             key=chave,
+            disabled=alimento_id in restritos_ids,
         )
 
     if st.button("Salvar porcoes", key=f"salvar_porcoes_{morador_id_porcoes}"):
