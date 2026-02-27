@@ -164,6 +164,27 @@ if not alimentos:
 if "semana" not in st.session_state:
     st.session_state.semana = None
 
+assinatura_alimentos = tuple(
+    sorted(
+        (
+            a["id"],
+            a["nome"],
+            float(a["preco"]),
+            a.get("gramas"),
+            tuple(sorted(a.get("preparos", []))),
+        )
+        for a in alimentos
+    )
+)
+
+if st.session_state.get("morador_cardapio_id") != morador_id:
+    st.session_state.semana = None
+    st.session_state.morador_cardapio_id = morador_id
+    st.session_state.alimentos_assinatura = assinatura_alimentos
+elif st.session_state.get("alimentos_assinatura") != assinatura_alimentos:
+    st.session_state.semana = None
+    st.session_state.alimentos_assinatura = assinatura_alimentos
+
 
 def gerar_semana():
     return gerar_cardapio(morador_id, alimentos)
