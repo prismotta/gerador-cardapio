@@ -101,7 +101,6 @@ if meta_key not in st.session_state:
 meta_diaria = st.number_input(
     "Meta diária (g)",
     min_value=0,
-    value=int(st.session_state[meta_key]),
     step=50,
     key=meta_key,
 )

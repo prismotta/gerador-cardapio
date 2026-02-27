@@ -152,14 +152,26 @@ def gerar_lanche(rap10_count, limite_rap10):
         "Vitamina de Banana + Aveia",
     ]
     pesos = [3, 2, 2, 2]
+    gramas_por_opcao = {
+        "Banana + Aveia": 220,
+        "SanduÃ­che Presunto + Mussarela": 180,
+        "PÃ£o + Banana + Pasta de Amendoim": 230,
+        "Vitamina de Banana + Aveia": 300,
+    }
 
     if rap10_count < limite_rap10:
         recheios = random.sample(["Frango Desfiado", "Presunto", "Queijo"], k=random.choice([1, 2]))
-        opcoes.append("Rap10 + " + " + ".join(recheios))
+        nome_rap10 = "Rap10 + " + " + ".join(recheios)
+        opcoes.append(nome_rap10)
         pesos.append(1)
+        gramas_por_opcao[nome_rap10] = 60 + (40 * len(recheios))
 
     escolhido = random.choices(opcoes, weights=pesos, k=1)[0]
-    return {"tipo": "rap10" if escolhido.startswith("Rap10") else "simples", "nome": escolhido}
+    return {
+        "tipo": "rap10" if escolhido.startswith("Rap10") else "simples",
+        "nome": escolhido,
+        "gramas": gramas_por_opcao.get(escolhido, 200),
+    }
 
 
 def _contador_inicial_carbo():

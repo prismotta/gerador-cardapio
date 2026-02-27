@@ -71,6 +71,9 @@ def mostrar_cardapio(semana, morador_nome, meta):
             if "legume" in ref:
                 total_dia += _obter_gramas(ref["legume"])
 
+        # LANCHE
+        total_dia += _obter_gramas(d["Lanche"])
+
         totais_semana.append(total_dia)
 
         # Exibição peso
