@@ -13,6 +13,17 @@ from config import LIMITES_CARBO, LEGUMES
 from core.regras import aplicar_regras_inteligentes
 from core.preparos import aplicar_preparo
 
+GRAMAS_PADRAO = {
+    "Frango": 150,
+    "Hamburguer": 120,
+    "Macarrao": 140,
+    "Mandioca": 180,
+    "Batata": 180,
+    "Pepino": 80,
+    "Tomate": 80,
+    "Cenoura": 80,
+}
+
 
 def extrair_id_refeicao(ref):
     proteina_nome = ref["proteina"].get("nome", "Ovos")
@@ -22,9 +33,44 @@ def extrair_id_refeicao(ref):
 
 def organizar_alimentos_por_nome(alimentos):
     resultado = {}
-    for alimento_id, nome, preco in alimentos:
-        resultado[nome] = {"id": alimento_id, "nome": nome, "preco": preco}
+    for item in alimentos:
+        if isinstance(item, dict):
+            alimento_id = item["id"]
+            nome = item["nome"]
+            preco = item["preco"]
+            preparos = item.get("preparos", [])
+        else:
+            alimento_id, nome, preco = item
+            preparos = []
+
+        resultado[nome] = {
+            "id": alimento_id,
+            "nome": nome,
+            "preco": preco,
+            "gramas": inferir_gramas_padrao(nome),
+            "preparos": preparos,
+        }
     return resultado
+
+
+def inferir_gramas_padrao(nome):
+    if "Frango" in nome:
+        return GRAMAS_PADRAO["Frango"]
+    if "Hamb" in nome:
+        return GRAMAS_PADRAO["Hamburguer"]
+    if "Macarr" in nome:
+        return GRAMAS_PADRAO["Macarrao"]
+    if "Mandioca" in nome:
+        return GRAMAS_PADRAO["Mandioca"]
+    if "Batata" in nome:
+        return GRAMAS_PADRAO["Batata"]
+    if "Pepino" in nome:
+        return GRAMAS_PADRAO["Pepino"]
+    if "Tomate" in nome:
+        return GRAMAS_PADRAO["Tomate"]
+    if "Cenoura" in nome:
+        return GRAMAS_PADRAO["Cenoura"]
+    return 100
 
 
 def identificar_tipo_carbo(nome_carbo):
@@ -62,7 +108,7 @@ def encontrar_alimento_por_nome(alimentos_dict, nome_base):
 
 def gerar_refeicao_fixa(tipo_proteina, incluir_legume, contador_carbo, alimentos_dict):
     if tipo_proteina == "Ovos":
-        proteina = {"tipo": "ovos", "quantidade": 3}
+        proteina = {"tipo": "ovos", "quantidade": 3, "gramas": 150}
     else:
         proteina = encontrar_alimento_por_nome(alimentos_dict, tipo_proteina)
         if not proteina:

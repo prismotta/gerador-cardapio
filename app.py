@@ -120,10 +120,37 @@ def carregar_alimentos(usuario_id):
         """,
         (usuario_id,),
     )
-
     dados = cursor.fetchall()
+
+    cursor.execute(
+        f"""
+        SELECT pa.alimento_id, pa.nome
+        FROM preparos_alimento pa
+        JOIN alimentos a ON a.id = pa.alimento_id
+        WHERE a.usuario_id = {placeholder}
+        ORDER BY pa.nome
+        """,
+        (usuario_id,),
+    )
+    preparos_raw = cursor.fetchall()
     conn.close()
-    return dados
+
+    preparos_por_alimento = {}
+    for alimento_id, preparo_nome in preparos_raw:
+        preparos_por_alimento.setdefault(alimento_id, []).append(preparo_nome)
+
+    alimentos = []
+    for alimento_id, nome, preco in dados:
+        alimentos.append(
+            {
+                "id": alimento_id,
+                "nome": nome,
+                "preco": preco,
+                "preparos": preparos_por_alimento.get(alimento_id, []),
+            }
+        )
+
+    return alimentos
 
 
 alimentos = carregar_alimentos(usuario_id)
