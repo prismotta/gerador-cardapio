@@ -45,7 +45,6 @@ PREPARO_CARBO = {
     ],
     "Mandioca": [
         "Cozida",
-        "Frita na Airfryer",
     ],
     "Macarrao": [
         "Simples",

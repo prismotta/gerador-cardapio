@@ -106,18 +106,21 @@ meta_diaria = st.number_input(
 )
 
 
-def carregar_alimentos(usuario_id):
+def carregar_alimentos(usuario_id, morador_id):
     conn = get_connection()
     cursor = conn.cursor()
     placeholder = get_placeholder()
 
     cursor.execute(
         f"""
-        SELECT id, nome, preco
-        FROM alimentos
-        WHERE usuario_id = {placeholder}
+        SELECT a.id, a.nome, a.preco, p.gramas
+        FROM alimentos a
+        LEFT JOIN porcoes p
+            ON p.alimento_id = a.id
+           AND p.morador_id = {placeholder}
+        WHERE a.usuario_id = {placeholder}
         """,
-        (usuario_id,),
+        (morador_id, usuario_id),
     )
     dados = cursor.fetchall()
 
@@ -139,20 +142,21 @@ def carregar_alimentos(usuario_id):
         preparos_por_alimento.setdefault(alimento_id, []).append(preparo_nome)
 
     alimentos = []
-    for alimento_id, nome, preco in dados:
+    for alimento_id, nome, preco, gramas in dados:
         alimentos.append(
             {
                 "id": alimento_id,
                 "nome": nome,
                 "preco": preco,
                 "preparos": preparos_por_alimento.get(alimento_id, []),
+                "gramas": gramas,
             }
         )
 
     return alimentos
 
 
-alimentos = carregar_alimentos(usuario_id)
+alimentos = carregar_alimentos(usuario_id, morador_id)
 if not alimentos:
     st.warning("Nenhum alimento cadastrado.")
     st.stop()

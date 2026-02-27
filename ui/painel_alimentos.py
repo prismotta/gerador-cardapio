@@ -63,6 +63,53 @@ def listar_preparos_alimento(alimento_id):
     return dados
 
 
+def listar_porcoes_morador(morador_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    placeholder = get_placeholder()
+    cursor.execute(
+        f"""
+        SELECT alimento_id, gramas
+        FROM porcoes
+        WHERE morador_id = {placeholder}
+        """,
+        (morador_id,),
+    )
+    dados = cursor.fetchall()
+    conn.close()
+    return {alimento_id: gramas for alimento_id, gramas in dados}
+
+
+def salvar_porcoes_morador(morador_id, porcoes):
+    conn = get_connection()
+    cursor = conn.cursor()
+    placeholder = get_placeholder()
+    try:
+        for alimento_id, gramas in porcoes.items():
+            cursor.execute(
+                f"""
+                DELETE FROM porcoes
+                WHERE morador_id = {placeholder}
+                  AND alimento_id = {placeholder}
+                """,
+                (morador_id, alimento_id),
+            )
+            if int(gramas) > 0:
+                cursor.execute(
+                    f"""
+                    INSERT INTO porcoes (morador_id, alimento_id, gramas)
+                    VALUES ({placeholder}, {placeholder}, {placeholder})
+                    """,
+                    (morador_id, alimento_id, int(gramas)),
+                )
+        conn.commit()
+        return True
+    except Exception:
+        return False
+    finally:
+        conn.close()
+
+
 def painel_alimentos(usuario_id):
     st.subheader("Painel Administrativo")
     st.markdown("---")
@@ -290,4 +337,33 @@ def painel_alimentos(usuario_id):
             if not pode_remover:
                 st.caption("Pelo menos um morador deve permanecer.")
 
-    st.info("Porcoes por morador serao integradas em uma proxima melhoria.")
+    st.divider()
+    st.subheader("Porcoes por morador")
+    if not moradores:
+        st.info("Cadastre pelo menos um morador.")
+        return
+
+    opcoes_morador = {f"{nome} (id {morador_id})": morador_id for morador_id, nome, _ in moradores}
+    morador_label = st.selectbox("Morador para configurar porcoes", list(opcoes_morador.keys()))
+    morador_id_porcoes = opcoes_morador[morador_label]
+
+    porcoes_atuais = listar_porcoes_morador(morador_id_porcoes)
+    valores_porcoes = {}
+
+    for alimento_id, nome, _preco in alimentos:
+        chave = f"porcao_{morador_id_porcoes}_{alimento_id}"
+        valor_padrao = int(porcoes_atuais.get(alimento_id, 0))
+        valores_porcoes[alimento_id] = st.number_input(
+            f"{nome} (g por refeicao)",
+            min_value=0,
+            value=valor_padrao,
+            step=10,
+            key=chave,
+        )
+
+    if st.button("Salvar porcoes", key=f"salvar_porcoes_{morador_id_porcoes}"):
+        if salvar_porcoes_morador(morador_id_porcoes, valores_porcoes):
+            st.success("Porcoes atualizadas.")
+            st.rerun()
+        else:
+            st.error("Nao foi possivel salvar as porcoes.")

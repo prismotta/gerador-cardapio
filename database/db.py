@@ -46,6 +46,7 @@ def get_placeholder():
 def criar_tabelas():
     conn = get_connection()
     cursor = conn.cursor()
+    placeholder = get_placeholder()
 
     id_type = "SERIAL PRIMARY KEY" if is_postgres() else "INTEGER PRIMARY KEY AUTOINCREMENT"
 
@@ -105,6 +106,32 @@ def criar_tabelas():
             UNIQUE(alimento_id, nome)
         )
         """
+    )
+
+    # Regra global: mandioca deve ter apenas preparo "Cozida".
+    cursor.execute(
+        f"""
+        DELETE FROM preparos_alimento
+        WHERE nome = {placeholder}
+          AND alimento_id IN (
+              SELECT id
+              FROM alimentos
+              WHERE nome = {placeholder}
+          )
+        """,
+        ("Frita na Airfryer", "Mandioca"),
+    )
+    cursor.execute(
+        f"""
+        DELETE FROM preparos_alimento
+        WHERE nome IN ({placeholder}, {placeholder})
+          AND alimento_id IN (
+              SELECT id
+              FROM alimentos
+              WHERE nome = {placeholder}
+          )
+        """,
+        ("Frita na Airfrier", "Frita na Ayrfrier", "Mandioca"),
     )
 
     conn.commit()
@@ -191,7 +218,7 @@ def obter_preparos_padrao():
         "Hambúrguer": ["Grelhado"],
         "Batata": ["Frita na Airfryer", "Assada na Airfryer", "Rustica na Airfryer"],
         "Macarrão": ["Simples"],
-        "Mandioca": ["Cozida", "Frita na Airfryer"],
+        "Mandioca": ["Cozida"],
         "Pepino": ["Cru em rodelas"],
         "Tomate": ["Cru em rodelas"],
         "Cenoura": ["Crua ralada"],
