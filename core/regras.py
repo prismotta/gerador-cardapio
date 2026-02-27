@@ -1,38 +1,18 @@
 """
 core/regras.py
 -------------------------------------------------------
-Módulo responsável pelas regras inteligentes de
-combinação entre proteína e carboidrato.
-
-Este módulo:
-- NÃO acessa banco
-- NÃO depende de chave por morador
-- Trabalha apenas com nomes base
-
-Exemplo de carbos recebidos:
-["Batata", "Macarrao", "Mandioca"]
+Regras de combinacao entre proteina e carboidrato.
 -------------------------------------------------------
 """
 
-# =========================================================
-# REGRAS DE COMBINAÇÃO
-# =========================================================
 
 REGRAS_COMBINACAO = {
-    "Ovos": ["Macarrao", "Mandioca"],
-    "Hambúrguer": ["Macarrao"],
+    "Ovos": {"Macarrao", "Mandioca"},
+    "Hamburguer": {"Macarrao"},
 }
 
 
-# =========================================================
-# IDENTIFICAR TIPO DA PROTEÍNA
-# =========================================================
-
 def identificar_tipo_proteina(proteina):
-    """
-    Determina o tipo base da proteína.
-    """
-
     if not isinstance(proteina, dict):
         return None
 
@@ -42,35 +22,34 @@ def identificar_tipo_proteina(proteina):
     nome = proteina.get("nome", "")
 
     if "Hamb" in nome:
-        return "Hambúrguer"
-
+        return "Hamburguer"
     if "Frango" in nome:
         return "Frango"
-
     return nome
 
 
-# =========================================================
-# FUNÇÃO PRINCIPAL
-# =========================================================
+def identificar_tipo_carbo(nome_carbo):
+    if "Macarr" in nome_carbo:
+        return "Macarrao"
+    if "Mandioca" in nome_carbo:
+        return "Mandioca"
+    if "Batata" in nome_carbo:
+        return "Batata"
+    return nome_carbo
+
 
 def aplicar_regras_inteligentes(proteina, carbos):
-
     tipo_proteina = identificar_tipo_proteina(proteina)
-
     if not tipo_proteina:
         return carbos
 
     proibidos = REGRAS_COMBINACAO.get(tipo_proteina)
-
-    # Se não houver regra
     if not proibidos:
         return carbos
 
     carbos_filtrados = [
         c for c in carbos
-        if not any(p in c for p in proibidos)
+        if identificar_tipo_carbo(c) not in proibidos
     ]
 
-    # Nunca retorna lista vazia
     return carbos_filtrados if carbos_filtrados else carbos

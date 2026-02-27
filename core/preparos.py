@@ -73,7 +73,8 @@ def aplicar_preparo(refeicao):
 
     elif "Macarr" in nome_carbo_base:
 
-        preparo = random.choice(PREPARO_CARBO["Macarrao"])
+        opcoes_macarrao = PREPARO_CARBO.get("Macarrão") or PREPARO_CARBO.get("Macarrao", ["Simples"])
+        preparo = random.choice(opcoes_macarrao)
         nome_carbo = (
             f"Macarrão {preparo} ({peso_carbo}g)"
             if peso_carbo else f"Macarrão {preparo}"
