@@ -33,7 +33,24 @@ def _obter_gramas(item):
     - gramas
     - ausência de peso
     """
-    return item.get("g") or item.get("gramas") or 0
+    gramas = item.get("g") or item.get("gramas")
+    if gramas:
+        return gramas
+
+    nome = item.get("nome", "")
+    if not nome:
+        return 0
+    if "Banana + Aveia" in nome:
+        return 220
+    if "Presunto" in nome and "Mussarela" in nome:
+        return 180
+    if "Pasta de Amendoim" in nome:
+        return 230
+    if "Vitamina de Banana + Aveia" in nome:
+        return 300
+    if nome.startswith("Rap10"):
+        return 140 if nome.count("+") >= 2 else 100
+    return 0
 
 
 # =========================================================
@@ -94,7 +111,7 @@ def mostrar_cardapio(semana, morador_nome, meta):
         dados.append({
             "Dia": d["Dia"],
             "Almoço": almoco["proteina_formatada"] + " + " + almoco["carbo_formatado"],
-            "Lanche": d["Lanche"]["nome"],
+            "Lanche": f"{d['Lanche']['nome']} ({_obter_gramas(d['Lanche'])}g)",
             "Jantar": jantar["proteina_formatada"] + " + " + jantar["carbo_formatado"],
             "Peso total": peso_exibicao,
             "Balanço": status
