@@ -131,7 +131,13 @@ if st.session_state.semana is None:
     st.session_state.semana = gerar_semana()
 
 dia_opcoes = [d["Dia"] for d in st.session_state.semana]
-dia_selecionado = st.selectbox("Dia para trocar refeição", dia_opcoes)
+
+if "dia_para_troca" not in st.session_state:
+    st.session_state.dia_para_troca = dia_opcoes[0]
+elif st.session_state.dia_para_troca not in dia_opcoes:
+    st.session_state.dia_para_troca = dia_opcoes[0]
+
+dia_selecionado = st.selectbox("Dia para trocar refeição", dia_opcoes, key="dia_para_troca")
 dia_index = dia_opcoes.index(dia_selecionado)
 
 acao = render_botoes()
