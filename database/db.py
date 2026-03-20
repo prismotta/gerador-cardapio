@@ -117,6 +117,47 @@ def criar_tabelas():
 
 
 # =========================================================
+# MIGRAÇÕES
+# =========================================================
+
+def migrar_alimentos():
+    """
+    Adiciona coluna 'chave' à tabela alimentos se não existir.
+    Necessário para bancos que foram criados antes dessa coluna.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Verificar se a coluna existe
+        if is_postgres():
+            cursor.execute("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name='alimentos' AND column_name='chave'
+            """)
+        else:
+            cursor.execute("PRAGMA table_info(alimentos)")
+            colunas = [col[1] for col in cursor.fetchall()]
+            if "chave" in colunas:
+                conn.close()
+                return
+        
+        # Se chegou aqui em PostgreSQL e não retornou, precisa adicionar
+        if is_postgres() and not cursor.fetchone():
+            cursor.execute("""
+                ALTER TABLE alimentos
+                ADD COLUMN chave TEXT
+            """)
+            conn.commit()
+        
+    except Exception as e:
+        print(f"Aviso: Não foi possível verificar/migrar coluna 'chave': {e}")
+    finally:
+        conn.close()
+
+
+# =========================================================
 # SEGURANÇA
 # =========================================================
 

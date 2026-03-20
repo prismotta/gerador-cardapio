@@ -24,6 +24,7 @@ import streamlit as st
 
 from database.db import (
     criar_tabelas,
+    migrar_alimentos,
     carregar_alimentos_dict,
     garantir_alimentos_iniciais
 )
@@ -46,6 +47,7 @@ from ui.visualizacao import (
 # =========================================================
 
 criar_tabelas()
+migrar_alimentos()
 
 # =========================================================
 # CONFIGURAÇÃO STREAMLIT
