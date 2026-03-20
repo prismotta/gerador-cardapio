@@ -6,6 +6,7 @@ Responsável por toda lógica de geração do cardápio semanal.
 """
 
 import random
+from typing import Dict, List, Tuple, Set
 from config import LIMITES_CARBO, LEGUMES
 from core.regras import aplicar_regras_inteligentes
 from core.preparos import aplicar_preparo
@@ -15,17 +16,52 @@ from core.preparos import aplicar_preparo
 # AUXILIAR
 # =========================================================
 
-def extrair_id_refeicao(ref):
-    proteina_nome = ref["proteina"].get("nome", "Ovos")
-    carbo_nome = ref["carbo"].get("nome", "")
+def extrair_id_refeicao(ref: Dict) -> Tuple[str, str]:
+    """Extrai identificador único da refeição.
+    
+    Args:
+        ref: Dicionário de refeição com proteína e carbo
+        
+    Returns:
+        Tupla (proteina_nome, carbo_nome) para comparação
+    """
+    proteina = ref.get("proteina", {})
+    carbo = ref.get("carbo", {})
+    
+    proteina_nome = proteina.get("nome", "Ovos") if isinstance(proteina, dict) else "Ovos"
+    carbo_nome = carbo.get("nome", "") if isinstance(carbo, dict) else ""
+    
     return (proteina_nome, carbo_nome)
+
+
+def gerar_recheios_rap10() -> str:
+    """Gera string de recheios para RAP10.
+    
+    Returns:
+        String com recheios aleatórios (1-2 itens)
+    """
+    recheios = random.sample(
+        ["Frango Desfiado", "Presunto", "Queijo"],
+        k=random.choice([1, 2])
+    )
+    return "Rap10 + " + " + ".join(recheios)
 
 
 # =========================================================
 # PROTEÍNA
 # =========================================================
 
-def gerar_proteina(morador_atual, config_local, alimentos):
+def gerar_proteina(morador_atual: str, config_local: Dict, alimentos: Dict) -> Dict:
+    """Seleciona proteína para refeição.
+    
+    Args:
+        morador_atual: Identificador do morador
+        config_local: Configurações locais do morador
+        alimentos: Dicionário de alimentos disponíveis
+        
+    Returns:
+        Dicionário com proteína selecionada
+    """
 
     if morador_atual == "Morador 1 (Massa)":
         frango = "Frango_M1"
@@ -58,13 +94,26 @@ def gerar_proteina(morador_atual, config_local, alimentos):
 # =========================================================
 
 def gerar_refeicao_fixa(
-    tipo_proteina,
-    morador_atual,
-    config_local,
-    incluir_legume,
-    contador_carbo,
-    alimentos
-):
+    tipo_proteina: str,
+    morador_atual: str,
+    config_local: Dict,
+    incluir_legume: bool,
+    contador_carbo: Dict,
+    alimentos: Dict
+) -> Dict:
+    """Gera refeição principal (almoço/jantar).
+    
+    Args:
+        tipo_proteina: Tipo de proteína (Ovos, Frango, Hambúrguer)
+        morador_atual: Identificador do morador
+        config_local: Configurações locais
+        incluir_legume: Se deve incluir legume
+        contador_carbo: Contador de carboidratos usados
+        alimentos: Dicionário de alimentos
+        
+    Returns:
+        Dicionário com refeição completa formatada
+    """
 
     # ---------------- PROTEÍNA ----------------
 
@@ -142,15 +191,19 @@ def gerar_refeicao_fixa(
 # LANCHE
 # =========================================================
 
-def gerar_lanche(morador_atual, rap10_count, limite_rap10, forcar_rap10=False):
-
+def gerar_lanche(morador_atual: str, forcar_rap10: bool = False) -> Dict:
+    """Gera opção de lanche.
+    
+    Args:
+        morador_atual: Identificador do morador
+        forcar_rap10: Se True, força RAP10 como lanche
+        
+    Returns:
+        Dicionário com tipo e nome do lanche
+    """
     # Se forçar RAP10, gerar e retornar
     if forcar_rap10:
-        recheios = random.sample(
-            ["Frango Desfiado", "Presunto", "Queijo"],
-            k=random.choice([1, 2])
-        )
-        lanche_rap10 = "Rap10 + " + " + ".join(recheios)
+        lanche_rap10 = gerar_recheios_rap10()
         return {
             "tipo": "rap10",
             "nome": lanche_rap10
@@ -185,14 +238,6 @@ def gerar_lanche(morador_atual, rap10_count, limite_rap10, forcar_rap10=False):
         opcoes.append("Sanduíche Presunto + Mussarela")
         pesos.append(1)
 
-    if rap10_count < limite_rap10:
-        recheios = random.sample(
-            ["Frango Desfiado", "Presunto", "Queijo"],
-            k=random.choice([1, 2])
-        )
-        opcoes.append("Rap10 + " + " + ".join(recheios))
-        pesos.append(1)
-
     lanche_escolhido = random.choices(opcoes, weights=pesos, k=1)[0]
 
     return {
@@ -205,14 +250,22 @@ def gerar_lanche(morador_atual, rap10_count, limite_rap10, forcar_rap10=False):
 # CARDÁPIO SEMANAL
 # =========================================================
 
-def gerar_cardapio(morador_atual, config_local, limite_rap10, alimentos):
-
-    dias = ["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"]
+def gerar_cardapio(morador_atual: str, config_local: Dict, alimentos: Dict) -> List[Dict]:
+    """Gera cardápio completo para uma semana.
+    
+    Args:
+        morador_atual: Identificador do morador
+        config_local: Configurações locais do morador  
+        alimentos: Dicionário de alimentos disponíveis
+        
+    Returns:
+        Lista com 7 dias de cardápio (almoço, lanche, jantar)
+    """
+    dias = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
     semana = []
-    rap10_count = 0
-
+    
     # Selecionar 2 dias aleatórios da semana para RAP10
-    dias_com_rap10 = set(random.sample(range(7), k=2))
+    dias_com_rap10: Set[int] = set(random.sample(range(7), k=2))
 
     proteinas_semana = (
         ["Frango"] * 6 +
@@ -260,10 +313,7 @@ def gerar_cardapio(morador_atual, config_local, limite_rap10, alimentos):
 
         # ================= LANCHE =================
         forcar_rap10 = idx in dias_com_rap10
-        lanche = gerar_lanche(morador_atual, rap10_count, limite_rap10, forcar_rap10)
-
-        if lanche["tipo"] == "rap10":
-            rap10_count += 1
+        lanche = gerar_lanche(morador_atual, forcar_rap10)
 
         ultima_refeicao_id = ("lanche", lanche["nome"])
 

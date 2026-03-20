@@ -67,15 +67,21 @@ if not st.session_state.logado:
     st.stop()
 
 # Garantir que usuario_id seja inteiro
-usuario_id = st.session_state.get("usuario_id")
+usuario = st.session_state.get("usuario_id")
 
-if isinstance(usuario_id, tuple):
-    usuario_id = usuario_id[0]
-    st.session_state.usuario_id = usuario_id
-
-if not usuario_id:
-    st.error("Erro ao identificar usuário.")
+if not usuario:
+    st.error("Usuário não autenticado.")
     st.stop()
+
+# Se vier como tupla (id, username)
+if isinstance(usuario, tuple):
+    usuario_id = usuario[0]
+else:
+    usuario_id = usuario
+
+# Garantir que é inteiro
+usuario_id = int(usuario_id)
+st.session_state.usuario_id = usuario_id
 
 # =========================================================
 # ONBOARDING AUTOMÁTICO
@@ -154,7 +160,6 @@ def gerar_semana():
     return gerar_cardapio(
         morador,
         config_local,
-        limite_rap10,
         alimentos
     )
 

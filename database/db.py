@@ -20,10 +20,15 @@ App → db.py → Banco
 """
 
 import sqlite3
-import psycopg2
 import hashlib
 from urllib.parse import urlparse
 from config import DATABASE_URL, DATABASE_PATH
+
+# Torna psycopg2 opcional no ambiente local
+try:
+    import psycopg2
+except ImportError:
+    psycopg2 = None
 
 
 # =========================================================
@@ -38,7 +43,11 @@ def get_connection():
     - Caso contrário → usa SQLite local
     """
     if DATABASE_URL:
+        if not psycopg2:
+            raise RuntimeError("psycopg2 não está instalado no ambiente.")
+
         result = urlparse(DATABASE_URL)
+
         return psycopg2.connect(
             dbname=result.path[1:],
             user=result.username,
@@ -77,9 +86,12 @@ def criar_tabelas():
     conn = get_connection()
     cursor = conn.cursor()
 
-    id_type = "SERIAL PRIMARY KEY" if is_postgres() else "INTEGER PRIMARY KEY AUTOINCREMENT"
+    id_type = (
+        "SERIAL PRIMARY KEY"
+        if is_postgres()
+        else "INTEGER PRIMARY KEY AUTOINCREMENT"
+    )
 
-    # Tabela de usuários
     cursor.execute(f"""
         CREATE TABLE IF NOT EXISTS usuarios (
             id {id_type},
@@ -89,7 +101,6 @@ def criar_tabelas():
         )
     """)
 
-    # Tabela de alimentos
     cursor.execute(f"""
         CREATE TABLE IF NOT EXISTS alimentos (
             id {id_type},
@@ -110,10 +121,7 @@ def criar_tabelas():
 # =========================================================
 
 def hash_senha(senha):
-    """
-    Gera hash SHA-256 da senha.
-    Nunca armazenamos senha em texto puro.
-    """
+    """Gera hash SHA-256 da senha."""
     return hashlib.sha256(senha.encode()).hexdigest()
 
 
@@ -122,13 +130,7 @@ def hash_senha(senha):
 # =========================================================
 
 def criar_usuario(username, password):
-    """
-    Cria novo usuário.
-
-    Retorna:
-    - True se sucesso
-    - False se usuário já existir
-    """
+    """Cria novo usuário."""
     conn = get_connection()
     cursor = conn.cursor()
     placeholder = get_placeholder()
@@ -152,10 +154,7 @@ def criar_usuario(username, password):
 
 
 def autenticar_usuario(username, password):
-    """
-    Autentica usuário.
-    Retorna (id, username) ou None.
-    """
+    """Autentica usuário. Retorna (id, username) ou None."""
     conn = get_connection()
     cursor = conn.cursor()
     placeholder = get_placeholder()
@@ -224,7 +223,7 @@ def carregar_alimentos_dict(usuario_id):
     """
     Retorna alimentos no formato dicionário:
     {
-        "Frango_M1": {"nome": "...", "g": ..., "preco": ...}
+        "Frango_M1": {"nome": "...", "gramas": ..., "preco": ...}
     }
     """
     alimentos = listar_alimentos_usuario(usuario_id)
@@ -233,7 +232,7 @@ def carregar_alimentos_dict(usuario_id):
     for chave, nome, gramas, preco in alimentos:
         resultado[chave] = {
             "nome": nome,
-            "g": gramas,
+            "gramas": gramas,
             "preco": preco
         }
 
@@ -281,35 +280,13 @@ def deletar_alimento(usuario_id, chave):
     conn.close()
 
 
-def obter_alimento_por_chave(usuario_id, chave):
-    """Retorna um alimento específico."""
-    conn = get_connection()
-    cursor = conn.cursor()
-    placeholder = get_placeholder()
-
-    cursor.execute(
-        f"""
-        SELECT chave, nome, gramas, preco
-        FROM alimentos
-        WHERE usuario_id = {placeholder}
-        AND chave = {placeholder}
-        """,
-        (usuario_id, chave),
-    )
-
-    dado = cursor.fetchone()
-    conn.close()
-
-    return dado
-
-
 # =========================================================
 # AUTO ONBOARDING
 # =========================================================
 
-def inserir_alimentos_padrao(usuario_id):
-
-    alimentos_padrao = {
+def obter_alimentos_padrao():
+    """Retorna alimentos padrão do sistema."""
+    return {
         # PROTEÍNAS
         "Frango_M1": ("Frango", 220, 18.98),
         "Frango_M2": ("Frango", 150, 18.98),
@@ -330,16 +307,15 @@ def inserir_alimentos_padrao(usuario_id):
         "Cenoura": ("Cenoura", 60, 5),
     }
 
-    for chave, (nome, g, preco) in alimentos_padrao.items():
-        inserir_alimento(usuario_id, chave, nome, g, preco)
-
 
 def garantir_alimentos_iniciais(usuario_id):
     """
-    Garante que o usuário tenha alimentos cadastrados.
-    Se não tiver, insere os padrões automaticamente.
+    Garante que todos os alimentos padrão existam para o usuário.
+    Insere apenas os que ainda não existem.
     """
-    alimentos = listar_alimentos_usuario(usuario_id)
+    alimentos_existentes = listar_alimentos_usuario(usuario_id)
+    chaves_existentes = {item[0] for item in alimentos_existentes}
 
-    if not alimentos:
-        inserir_alimentos_padrao(usuario_id)
+    for chave, (nome, gramas, preco) in obter_alimentos_padrao().items():
+        if chave not in chaves_existentes:
+            inserir_alimento(usuario_id, chave, nome, gramas, preco)
