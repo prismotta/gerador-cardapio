@@ -1,31 +1,9 @@
-"""
-ui/login.py
--------------------------------------------------------
-Tela de autenticação do sistema.
-
-Responsável por:
-- Login de usuários existentes
-- Cadastro de novos usuários
-- Controle de sessão (Streamlit session_state)
-
-Fluxo:
-Usuário → autenticar_usuario() → db.py → Banco
-
-Após login:
-- usuario_id salvo em session_state
-- flag logado = True
--------------------------------------------------------
-"""
-
 import streamlit as st
 from database.db import criar_usuario, autenticar_usuario
 from database.sessao import salvar_sessao, limpar_sessao
 
 
 def tela_login():
-    """
-    Renderiza interface de login/cadastro.
-    """
 
     st.title("🔐 Acesso ao Sistema")
     st.markdown("---")
@@ -35,8 +13,8 @@ def tela_login():
     username = st.text_input("Usuário")
     senha = st.text_input("Senha", type="password")
 
-    # Normalização básica
-    username = username.strip()
+    # Normalização
+    username = username.strip().lower()
 
     # =====================================================
     # LOGIN
@@ -54,7 +32,6 @@ def tela_login():
             usuario = autenticar_usuario(username, senha)
 
             if usuario:
-                # usuario vem como (id, username)
                 usuario_id = usuario[0]
 
                 st.session_state.usuario_id = usuario_id
@@ -95,4 +72,4 @@ def tela_login():
             if sucesso:
                 st.success("Usuário criado com sucesso! Agora faça login.")
             else:
-                st.error("Usuário já existe.")
+                st.error("Usuário já existe ou erro no cadastro.")
