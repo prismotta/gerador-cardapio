@@ -28,6 +28,7 @@ from database.db import (
     garantir_alimentos_iniciais
 )
 
+from database.sessao import carregar_sessao, limpar_sessao
 from ui.login import tela_login
 from ui.painel_alimentos import painel_alimentos
 
@@ -62,9 +63,18 @@ st.set_page_config(
 if "logado" not in st.session_state:
     st.session_state.logado = False
 
+# Tentar carregar sessão persistente se o usuário não está logado
 if not st.session_state.logado:
-    tela_login()
-    st.stop()
+    sessao_persistente = carregar_sessao()
+    
+    if sessao_persistente:
+        usuario_id, username = sessao_persistente
+        st.session_state.usuario_id = usuario_id
+        st.session_state.username = username
+        st.session_state.logado = True
+    else:
+        tela_login()
+        st.stop()
 
 # Garantir que usuario_id seja inteiro
 usuario = st.session_state.get("usuario_id")

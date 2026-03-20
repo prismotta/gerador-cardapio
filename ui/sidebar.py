@@ -1,4 +1,5 @@
 import streamlit as st
+from database.sessao import limpar_sessao
 
 
 def render_sidebar():
@@ -65,5 +66,16 @@ def render_sidebar():
     st.session_state["limite_rap10"] = limite_rap10
 
     mostrar_resumo = st.sidebar.checkbox("Mostrar lista de compras")
+
+    # =========================
+    # LOGOUT
+    # =========================
+
+    st.sidebar.markdown("---")
+    
+    if st.sidebar.button("🚪 Logout", use_container_width=True):
+        limpar_sessao()
+        st.session_state.clear()
+        st.rerun()
 
     return morador, config_local, limite_rap10, mostrar_resumo, meta_diaria

@@ -19,6 +19,7 @@ Após login:
 
 import streamlit as st
 from database.db import criar_usuario, autenticar_usuario
+from database.sessao import salvar_sessao, limpar_sessao
 
 
 def tela_login():
@@ -42,6 +43,7 @@ def tela_login():
     # =====================================================
 
     if aba == "Entrar":
+        manter_logado = st.checkbox("Manter logado", value=False)
 
         if st.button("Entrar", use_container_width=True):
 
@@ -59,11 +61,18 @@ def tela_login():
                 st.session_state.username = usuario[1]
                 st.session_state.logado = True
 
-                st.success("Login realizado com sucesso!")
+                # Salvar sessão se marcado "Manter logado"
+                if manter_logado:
+                    salvar_sessao(usuario_id, usuario[1])
+                else:
+                    limpar_sessao()
+
+                st.toast("Login realizado com sucesso! 🎉")
                 st.rerun()
 
             else:
                 st.error("Usuário ou senha incorretos.")
+                limpar_sessao()
 
     # =====================================================
     # CADASTRO
