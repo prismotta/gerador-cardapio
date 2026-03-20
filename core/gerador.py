@@ -142,7 +142,19 @@ def gerar_refeicao_fixa(
 # LANCHE
 # =========================================================
 
-def gerar_lanche(morador_atual, rap10_count, limite_rap10):
+def gerar_lanche(morador_atual, rap10_count, limite_rap10, forcar_rap10=False):
+
+    # Se forçar RAP10, gerar e retornar
+    if forcar_rap10:
+        recheios = random.sample(
+            ["Frango Desfiado", "Presunto", "Queijo"],
+            k=random.choice([1, 2])
+        )
+        lanche_rap10 = "Rap10 + " + " + ".join(recheios)
+        return {
+            "tipo": "rap10",
+            "nome": lanche_rap10
+        }
 
     opcoes = []
     pesos = []
@@ -199,6 +211,9 @@ def gerar_cardapio(morador_atual, config_local, limite_rap10, alimentos):
     semana = []
     rap10_count = 0
 
+    # Selecionar 2 dias aleatórios da semana para RAP10
+    dias_com_rap10 = set(random.sample(range(7), k=2))
+
     proteinas_semana = (
         ["Frango"] * 6 +
         ["Hambúrguer"] * 4 +
@@ -216,7 +231,7 @@ def gerar_cardapio(morador_atual, config_local, limite_rap10, alimentos):
     incluir_legume = morador_atual == "Morador 2 (Emagrecer)"
     ultima_refeicao_id = None
 
-    for dia in dias:
+    for idx, dia in enumerate(dias):
 
         # ================= ALMOÇO =================
         while True:
@@ -244,7 +259,8 @@ def gerar_cardapio(morador_atual, config_local, limite_rap10, alimentos):
         ultima_refeicao_id = id_atual
 
         # ================= LANCHE =================
-        lanche = gerar_lanche(morador_atual, rap10_count, limite_rap10)
+        forcar_rap10 = idx in dias_com_rap10
+        lanche = gerar_lanche(morador_atual, rap10_count, limite_rap10, forcar_rap10)
 
         if lanche["tipo"] == "rap10":
             rap10_count += 1

@@ -33,8 +33,7 @@ LIMITES_CARBO = {
 
 PREPARO_FRANGO = [
     "Grelhado na Frigideira",
-    "Desfiado na Pressão",
-    "Na Airfryer"
+    "Desfiado na Pressão"
 ]
 
 PREPARO_CARBO = {

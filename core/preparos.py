@@ -42,7 +42,7 @@ def aplicar_preparo(refeicao):
 
     if isinstance(proteina, dict) and proteina.get("tipo") == "ovos":
 
-        nome_proteina = f"Omelete ({proteina['quantidade']} ovos)"
+        nome_proteina = "Ovos mexidos (2 ovos)"
 
     elif isinstance(proteina, dict) and "Frango" in proteina.get("nome", ""):
 
